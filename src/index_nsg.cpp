@@ -115,7 +115,8 @@ void IndexNSG::get_neighbors(const float *query, const Parameters &parameter,
     // std::cout<<id<<std::endl;
     float dist = distance_->compare(data_ + dimension_ * (size_t)id, query,
                                     (unsigned)dimension_);
-    retset[i] = Neighbor(id, dist, true);
+    retset[L] = Neighbor(id, dist, true);
+    fullset.push_back(retset[L]);
     // flags[id] = 1;
     L++;
   }
@@ -183,8 +184,8 @@ void IndexNSG::get_neighbors(const float *query, const Parameters &parameter,
     // std::cout<<id<<std::endl;
     float dist = distance_->compare(data_ + dimension_ * (size_t)id, query,
                                     (unsigned)dimension_);
-    retset[i] = Neighbor(id, dist, true);
-    fullset.push_back(retset[i]);
+    retset[L] = Neighbor(id, dist, true);
+    fullset.push_back(retset[L]);
     // flags[id] = 1;
     L++;
   }
@@ -545,7 +546,7 @@ void IndexNSG::SearchWithOptGraph(const float *query, size_t K,
     float norm_x = *x;
     x++;
     float dist = dist_fast->compare(x, query, norm_x, (unsigned)dimension_);
-    retset[i] = Neighbor(id, dist, true);
+    retset[L] = Neighbor(id, dist, true);
     flags[id] = true;
     L++;
   }
