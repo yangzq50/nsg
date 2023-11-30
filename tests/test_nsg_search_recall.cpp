@@ -48,17 +48,14 @@ std::unique_ptr<T[]> load_data(const std::string &filename, size_t &num,
 }
 
 void usage_and_exit() {
-    std::cout << "Usage: my_test_search graph.nsg base.fvecs query.fvecs groundtruth.ivecs search_L" << std::endl;
-    std::cout << "graph.nsg: input nsg graph file" << std::endl;
-    std::cout << "base.fvecs: input base data file" << std::endl;
-    std::cout << "query.fvecs: input query data file" << std::endl;
-    std::cout << "groundtruth.ivecs: input groundtruth file" << std::endl;
-    std::cout << "search_L: search_L" << std::endl;
+    std::cout
+            << "Usage: test_nsg_search_recall graph.nsg base.fvecs query.fvecs groundtruth.ivecs search_L repeat_count"
+            << std::endl;
     exit(-1);
 }
 
 int main(int argc, char **argv) {
-    if (argc != 6) {
+    if (argc != 7) {
         usage_and_exit();
     }
     size_t points_num;
@@ -74,6 +71,8 @@ int main(int argc, char **argv) {
     assert(query_num == gt_num);
 
     auto L = (unsigned) atoi(argv[5]), K = (unsigned) top_k;
+    auto repeat_count = atoi(argv[6]);
+    if (repeat_count <= 0) repeat_count = 1;
     //output points_num, dim, query_num, query_dim, gt_num, top_k
     std::cout << "points_num: " << points_num << std::endl;
     std::cout << "dim: " << dim << std::endl;
@@ -81,10 +80,9 @@ int main(int argc, char **argv) {
     std::cout << "query_dim: " << query_dim << std::endl;
     std::cout << "gt_num: " << gt_num << std::endl;
     std::cout << "top_k: " << top_k << std::endl;
-    //output L
     std::cout << "search_L: " << L << std::endl;
-    //output K
     std::cout << "search_K: " << K << std::endl;
+    std::cout << "repeat_count: " << repeat_count << std::endl;
 
     std::vector<std::unordered_set<unsigned>> gt(gt_num);
     for (unsigned i = 0; i < gt_num; i++) {
@@ -111,7 +109,7 @@ int main(int argc, char **argv) {
     {
         //output "unoptimized_search"
         std::cout << "\n### unoptimized_search ###" << std::endl;
-        for (unsigned repeat_n = 1; repeat_n <= 5; ++repeat_n) {
+        for (unsigned repeat_n = 1; repeat_n <= repeat_count; ++repeat_n) {
             //output loop number
             std::cout << "\nloop: " << repeat_n << std::endl;
 
@@ -135,7 +133,7 @@ int main(int argc, char **argv) {
         std::cout << "\n### optimized_search ###" << std::endl;
         index.OptimizeGraph(data_load.get());
 
-        for (unsigned repeat_n = 1; repeat_n <= 5; ++repeat_n) {
+        for (unsigned repeat_n = 1; repeat_n <= repeat_count; ++repeat_n) {
             //output loop number
             std::cout << "\nloop: " << repeat_n << std::endl;
 
