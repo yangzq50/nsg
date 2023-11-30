@@ -394,6 +394,22 @@ void IndexNSG::Link(const Parameters &parameters, SimpleNeighbor *cut_graph_) {
     }
   }
 
+
+    {
+        unsigned range = parameters.Get<unsigned>("R");
+        unsigned max = 0, min = 1e6, avg = 0;
+        for (size_t i = 0; i < nd_; i++) {
+            SimpleNeighbor *des_pool = cut_graph_ + (size_t)i * (size_t)range;
+            unsigned size = 0;
+            while(size < range && des_pool[size].distance != -1) size++;
+            max = max < size ? size : max;
+            min = min > size ? size : min;
+            avg += size;
+        }
+        avg /= 1.0 * nd_;
+        printf("before InterInsert: Degree Statistics: Max = %d, Min = %d, Avg = %d\n", max, min, avg);
+    }
+
 #pragma omp for schedule(dynamic, 100)
   for (unsigned n = 0; n < nd_; ++n) {
     InterInsert(n, range, locks, cut_graph_);
@@ -423,7 +439,17 @@ void IndexNSG::Build(size_t n, const float *data, const Parameters &parameters) 
       final_graph_[i][j] = pool[j].id;
     }
   }
-
+    {
+        unsigned max = 0, min = 1e6, avg = 0;
+        for (size_t i = 0; i < nd_; i++) {
+            auto size = final_graph_[i].size();
+            max = max < size ? size : max;
+            min = min > size ? size : min;
+            avg += size;
+        }
+        avg /= 1.0 * nd_;
+        printf("before tree_grow: Degree Statistics: Max = %d, Min = %d, Avg = %d\n", max, min, avg);
+    }
   tree_grow(parameters);
 
   unsigned max = 0, min = 1e6, avg = 0;

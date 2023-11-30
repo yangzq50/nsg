@@ -4,6 +4,7 @@
 #include <chrono>
 #include <string>
 #include <unordered_set>
+#include <memory>
 
 void output_recall_top_k(const unsigned top_k, const std::vector<std::vector<unsigned>> &results,
                          const std::vector<std::unordered_set<unsigned>> &groundtruth) {
@@ -22,8 +23,9 @@ void output_recall_top_k(const unsigned top_k, const std::vector<std::vector<uns
     std::cout << "R@100: " << float(gt_cnt) / float(results.size() * top_k) << std::endl;
 }
 
-void load_data(const char *filename, float *&data, unsigned &num,
-               unsigned &dim) {  // load data with sift10K pattern
+template<typename T>
+std::unique_ptr<T[]> load_data(const std::string &filename, size_t &num,
+                               int &dim) {  // load data with sift10K pattern
     std::ifstream in(filename, std::ios::binary);
     if (!in.is_open()) {
         std::cout << "open file error" << std::endl;
@@ -32,60 +34,46 @@ void load_data(const char *filename, float *&data, unsigned &num,
     in.read((char *) &dim, 4);
     // std::cout<<"data dimension: "<<dim<<std::endl;
     in.seekg(0, std::ios::end);
-    std::ios::pos_type ss = in.tellg();
-    size_t fsize = (size_t) ss;
-    num = (unsigned) (fsize / (dim + 1) / 4);
-    data = new float[(size_t) num * (size_t) dim];
+    auto ss = in.tellg();
+    num = ((size_t) ss) / (dim + 1) / 4;
+    auto data = std::make_unique<T[]>(num * dim);
 
     in.seekg(0, std::ios::beg);
     for (size_t i = 0; i < num; i++) {
         in.seekg(4, std::ios::cur);
-        in.read((char *) (data + i * dim), dim * 4);
+        in.read((char *) (data.get() + i * dim), dim * 4);
     }
     in.close();
+    return data;
 }
 
-void load_data_i(const char *filename, unsigned *&data, unsigned &num,
-                 unsigned &top_k) {  // load data with sift10K pattern
-    std::ifstream in(filename, std::ios::binary);
-    if (!in.is_open()) {
-        std::cout << "open file error" << std::endl;
-        exit(-1);
-    }
-    in.read((char *) &top_k, 4);
-    // std::cout<<"data dimension: "<<dim<<std::endl;
-    in.seekg(0, std::ios::end);
-    std::ios::pos_type ss = in.tellg();
-    size_t fsize = (size_t) ss;
-    num = (unsigned) (fsize / (top_k + 1) / 4);
-    data = new unsigned[(size_t) num * (size_t) top_k];
-
-    in.seekg(0, std::ios::beg);
-    for (size_t i = 0; i < num; i++) {
-        in.seekg(4, std::ios::cur);
-        in.read((char *) (data + i * top_k), top_k * 4);
-    }
-    in.close();
+void usage_and_exit() {
+    std::cout << "Usage: my_test_search graph.nsg base.fvecs query.fvecs groundtruth.ivecs search_L" << std::endl;
+    std::cout << "graph.nsg: input nsg graph file" << std::endl;
+    std::cout << "base.fvecs: input base data file" << std::endl;
+    std::cout << "query.fvecs: input query data file" << std::endl;
+    std::cout << "groundtruth.ivecs: input groundtruth file" << std::endl;
+    std::cout << "search_L: search_L" << std::endl;
+    exit(-1);
 }
 
 int main(int argc, char **argv) {
-    if (argc != 2) {
-        std::cout << argv[0]
-                  << " search_L"
-                  << std::endl;
-        exit(-1);
+    if (argc != 6) {
+        usage_and_exit();
     }
-    float *data_load = nullptr;
-    unsigned points_num, dim;
-    load_data("/home/yzq/benchmark_dataset/sift1M/sift_base.fvecs", data_load, points_num, dim);
-    float *query_load = nullptr;
-    unsigned query_num, query_dim;
-    load_data("/home/yzq/benchmark_dataset/sift1M/sift_query.fvecs", query_load, query_num, query_dim);
+    size_t points_num;
+    int dim;
+    auto data_load = load_data<float>(argv[2], points_num, dim);
+    size_t query_num;
+    int query_dim;
+    auto query_load = load_data<float>(argv[3], query_num, query_dim);
     assert(dim == query_dim);
-    unsigned *gt_load = nullptr;
-    unsigned gt_num, top_k;
-    load_data_i("/home/yzq/benchmark_dataset/sift1M/sift_groundtruth.ivecs", gt_load, gt_num, top_k);
+    size_t gt_num;
+    int top_k;
+    auto gt_load = load_data<int>(argv[4], gt_num, top_k);
     assert(query_num == gt_num);
+
+    auto L = (unsigned) atoi(argv[5]), K = (unsigned) top_k;
     //output points_num, dim, query_num, query_dim, gt_num, top_k
     std::cout << "points_num: " << points_num << std::endl;
     std::cout << "dim: " << dim << std::endl;
@@ -93,6 +81,10 @@ int main(int argc, char **argv) {
     std::cout << "query_dim: " << query_dim << std::endl;
     std::cout << "gt_num: " << gt_num << std::endl;
     std::cout << "top_k: " << top_k << std::endl;
+    //output L
+    std::cout << "search_L: " << L << std::endl;
+    //output K
+    std::cout << "search_K: " << K << std::endl;
 
     std::vector<std::unordered_set<unsigned>> gt(gt_num);
     for (unsigned i = 0; i < gt_num; i++) {
@@ -100,14 +92,6 @@ int main(int argc, char **argv) {
             gt[i].insert(gt_load[i * top_k + j]);
         }
     }
-
-
-    auto L = (unsigned) atoi(argv[1]), K = top_k;
-
-    //output L
-    std::cout << "search_L: " << L << std::endl;
-    //output K
-    std::cout << "search_K: " << K << std::endl;
 
     if (L < K) {
         std::cout << "search_L cannot be smaller than search_K!" << std::endl;
@@ -119,7 +103,7 @@ int main(int argc, char **argv) {
     // query_num, query_dim);
     // TODO: Maybe metric doesn't matter here?
     efanna2e::IndexNSG index(dim, points_num, efanna2e::FAST_L2, nullptr);
-    index.Load("/home/yzq/benchmark_save_index/nsg/my_sift_C500_fix.nsg");
+    index.Load(argv[1]);
     //index.Load("/home/yzq/benchmark_save_index/nsg/sift_C500.nsg");
     efanna2e::Parameters paras;
     paras.Set<unsigned>("L_search", L);
@@ -135,7 +119,7 @@ int main(int argc, char **argv) {
 
             auto s = std::chrono::high_resolution_clock::now();
             for (unsigned i = 0; i < query_num; i++) {
-                index.Search(query_load + i * dim, data_load, K, paras, res[i].data());
+                index.Search(query_load.get() + i * dim, data_load.get(), K, paras, res[i].data());
             }
             auto e = std::chrono::high_resolution_clock::now();
 
@@ -149,7 +133,7 @@ int main(int argc, char **argv) {
     {
         //output "optimized_search"
         std::cout << "\n### optimized_search ###" << std::endl;
-        index.OptimizeGraph(data_load);
+        index.OptimizeGraph(data_load.get());
 
         for (unsigned repeat_n = 1; repeat_n <= 5; ++repeat_n) {
             //output loop number
@@ -159,7 +143,7 @@ int main(int argc, char **argv) {
 
             auto s = std::chrono::high_resolution_clock::now();
             for (unsigned i = 0; i < query_num; i++) {
-                index.SearchWithOptGraph(query_load + i * dim, K, paras, res[i].data());
+                index.SearchWithOptGraph(query_load.get() + i * dim, K, paras, res[i].data());
             }
             auto e = std::chrono::high_resolution_clock::now();
 
